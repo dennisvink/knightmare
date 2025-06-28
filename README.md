@@ -51,7 +51,7 @@ Ensure the following files exist in the project root:
 python app.py
 ```
 
-Navigate to [http://localhost:8080](http://localhost:8080) to play!
+Navigate to [http://localhost:7860](http://localhost:7860) to play!
 
 ---
 
@@ -64,10 +64,10 @@ docker build -t knightmare .
 
 ### Run the container
 ```bash
-docker run -p 8080:8080 knightmare
+docker run -p 7860:7860 knightmare
 ```
 
-Visit [http://localhost:8080](http://localhost:8080) in your browser.
+Visit [http://localhost:7860](http://localhost:7860) in your browser.
 
 ---
 
