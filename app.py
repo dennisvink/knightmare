@@ -126,20 +126,28 @@ class MCTSNode:
     def value(self):
         return self.value_sum / self.visits if self.visits > 0 else 0.0
 
-def expand_node(node):
+def expand_node(node, top_k=10):
     legal_moves = list(node.board.legal_moves)
     tensor = fen_to_tensor_perspective(node.board.fen()).unsqueeze(0)
+
     with torch.no_grad():
         logits, value = model(tensor)
         policy = torch.softmax(logits[0], dim=0)
 
+    move_priors = []
     for move in legal_moves:
         uci = move.uci()
         if uci in move_to_idx:
             prior = policy[move_to_idx[uci]].item()
-            board_copy = node.board.copy()
-            board_copy.push(move)
-            node.children[uci] = MCTSNode(board_copy, parent=node, move=move, prior=prior)
+            move_priors.append((move, prior))
+
+    # Keep only the top K moves by prior
+    move_priors = sorted(move_priors, key=lambda x: x[1], reverse=True)[:top_k]
+
+    for move, prior in move_priors:
+        board_copy = node.board.copy()
+        board_copy.push(move)
+        node.children[move.uci()] = MCTSNode(board_copy, parent=node, move=move, prior=prior)
 
     return value[0]
 
@@ -164,9 +172,9 @@ def backpropagate(node, value):
         current.value_sum += win_prob
         current = current.parent
 
-def run_mcts(root_board, simulations=100):
+def run_mcts(root_board, simulations=1000, top_k=10):
     root = MCTSNode(root_board)
-    expand_node(root)
+    expand_node(root, top_k=top_k)
 
     for _ in range(simulations):
         node = root
@@ -182,7 +190,7 @@ def run_mcts(root_board, simulations=100):
             else:
                 value = torch.tensor([0.0, 1.0, 0.0])
         else:
-            value = expand_node(node)
+            value = expand_node(node, top_k=top_k)
 
         backpropagate(node, value)
 
@@ -200,7 +208,7 @@ def start_game():
     move = None
 
     if computer_color == 'white':
-        move = run_mcts(board, simulations=100)
+        move = run_mcts(board, simulations=100, top_k=10)
         board.push(chess.Move.from_uci(move))
 
     return jsonify({
@@ -218,7 +226,7 @@ def model_move():
     if board.is_game_over():
         return jsonify({"error": "Game is over."})
 
-    best_move = run_mcts(board, simulations=100)
+    best_move = run_mcts(board, simulations=100, top_k=10)
     board.push(chess.Move.from_uci(best_move))
 
     return jsonify({
