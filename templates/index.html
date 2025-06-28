@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Knightmare Chess Engine</title>
+
+  <link rel="stylesheet" href="static/css/chessground.base.css" />
+  <link rel="stylesheet" href="static/css/chessground.brown.css" />
+  <link rel="stylesheet" href="static/css/chessground.cburnett.css" />
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+  <h2 id="heading">Knightmare Chess Engine</h2>
+  <div id="board" class="chessground"></div>
+  <textarea id="moves" readonly></textarea>
+
+  <script type="module">
+    import { Chess } from "./static/js/chess.js";
+    import { Chessground } from './static/js/chessground.min.js';
+
+    let game = new Chess();
+    let playerColor = 'white';
+    const movesTextArea = document.getElementById("moves");
+    const heading = document.getElementById("heading");
+    let board;
+
+    async function startGame() {
+      const res = await fetch("/start-game");
+      const data = await res.json();
+
+      game = new Chess(data.fen);
+      const computerColor = data.computer_color;
+      playerColor = (computerColor === 'white') ? 'black' : 'white';
+
+      heading.innerText = `Knightmare (${computerColor}) vs You (${playerColor})`;
+
+      board = Chessground(document.getElementById("board"), {
+        orientation: playerColor,
+        highlight: { lastMove: true, check: true },
+        movable: {
+          free: false,
+          color: game.turn() === playerColor[0] ? playerColor : null,
+          dests: getDestinations(),
+          events: { after: onUserMove }
+        }
+      });
+
+      updatePGN();
+
+      if (data.move) {
+        updatePGN();
+        board.set({ fen: game.fen() });
+      }
+
+      updateGround();
+    }
+
+    function getDestinations() {
+      const dests = new Map();
+      if (!game.isGameOver()) {
+        game.moves({ verbose: true }).forEach(m => {
+          if (!dests.has(m.from)) dests.set(m.from, []);
+          dests.get(m.from).push(m.to);
+        });
+      }
+      return dests;
+    }
+
+    function updateGround() {
+      board.set({
+        fen: game.fen(),
+        turnColor: game.turn() === 'w' ? 'white' : 'black',
+        movable: {
+          free: false,
+          color: game.turn() === playerColor[0] ? playerColor : null,
+          dests: getDestinations(),
+          events: { after: onUserMove }
+        }
+      });
+    }
+
+    function updatePGN() {
+      movesTextArea.value = game.pgn();
+    }
+
+    function onUserMove(from, to) {
+      const move = game.move({ from, to, promotion: 'q' });
+      if (!move) return;
+      updatePGN();
+      updateGround();
+      setTimeout(requestAIMove, 300);
+    }
+
+    async function requestAIMove() {
+      const res = await fetch("/model-move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fen: game.fen() })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert("Knightmare Error: " + data.error);
+        return;
+      }
+      const move = game.move({ from: data.move.slice(0, 2), to: data.move.slice(2, 4), promotion: 'q' });
+      if (move) {
+        updatePGN();
+        updateGround();
+      }
+    }
+
+    // Start game on load
+    startGame();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,18 @@
+body {
+  font-family: sans-serif;
+  padding: 20px;
+}
+#board {
+  width: 500px;
+  height: 500px;
+  margin-bottom: 20px;
+}
+#moves {
+  width: 500px;
+  height: 300px;
+  white-space: pre-wrap;
+  padding: 10px;
+  border: 1px solid #ccc;
+  font-family: monospace;
+  resize: none;
+}
