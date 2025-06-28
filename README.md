@@ -33,7 +33,7 @@ This project features:
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/knightmare.git
+git clone https://github.com/dennisvink/knightmare.git
 cd knightmare
 ```
 
