@@ -1,48 +1,39 @@
-# ♞ Knightmare
+# Knightmare
 
-**Knightmare** is a minimal chess engine combining **deep learning** and **Monte Carlo Tree Search (MCTS)** to play full games of chess through a browser interface.
+**Knightmare** is a minimal chess engine written by Dennis Vink (drvink.com) combining **deep learning** and **Monte Carlo Tree Search (MCTS)** to play full games of chess through a browser interface.
 
 This project features:
-- A **PyTorch-based neural network** that evaluates positions and suggests policies.
-- An **MCTS** search strategy guided by network predictions.
-- A lightweight **Flask** backend serving moves and game state to the browser.
-- Optional deployment via **Docker**.
+- A **PyTorch-based neural network** that evaluates board positions.
+- A **Monte Carlo Tree Search (MCTS)** planner for strong move selection.
+- A **Flask web interface** to interact with the engine.
+- A complete **training pipeline** to generate and learn from chess data.
+- Optional **Docker** containerization for easy deployment.
 
 ---
 
-## Demo of Knightmare
-
-https://chessbot-uo7slb3u7a-uc.a.run.app/
-
 ## How It Works
 
-Knightmare uses a neural network to evaluate board positions:
-
-1. **Board Representation**: A custom tensor encoding from FEN using 17 channels (12 piece planes, 4 castling rights, 1 en-passant).
-2. **Neural Network**: A residual CNN outputs:
-   - A **policy** over legal moves.
-   - A **value** prediction (win, draw, loss).
-3. **MCTS**: A guided search tree is built using:
-   - The **value head** to backpropagate outcomes.
-   - The **policy head** to inform expansion priors.
-4. The move with the highest visit count is selected after N simulations.
+1. **Board Representation**: FEN strings are encoded into 17-channel tensors (12 piece types, 4 castling planes, 1 en-passant).
+2. **Neural Network**: A deep residual convolutional network estimates:
+   - **Policy**: probability distribution over legal moves.
+   - **Value**: predicted outcome (win/draw/loss).
+3. **MCTS**: The network guides a Monte Carlo Tree Search to simulate positions and return the best move.
+4. **Flask API**: Communicates between frontend and engine to serve moves interactively.
 
 ---
 
 ## Getting Started Locally
 
-To run Knightmare locally without Docker:
-
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/dennisvink/knightmare.git
+git clone https://github.com/yourusername/knightmare.git
 cd knightmare
 ```
 
 ### 2. Set up a virtual environment
 ```bash
 python -m venv .venv/
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
 ```
 
 ### 3. Install dependencies
@@ -50,48 +41,89 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Ensure model and move index files are present
-Make sure these files exist in the project root:
-- `model.pt` – pre-trained model weights
-- `move_to_idx.json` – mapping from move UCI strings to network indices
+### 4. Ensure model and index exist
+Ensure the following files exist in the project root:
+- `model.pt` – trained model weights
+- `move_to_idx.json` – dictionary mapping UCI moves to index positions
 
 ### 5. Run the server
 ```bash
 python app.py
 ```
 
-Then open your browser to [http://localhost:8080](http://localhost:8080)
+Navigate to [http://localhost:8080](http://localhost:8080) to play!
 
 ---
 
-## Running with Docker
+## Docker
 
-### 1. Build the Docker image
+### Build the image
 ```bash
 docker build -t knightmare .
 ```
 
-### 2. Run the container
+### Run the container
 ```bash
 docker run -p 8080:8080 knightmare
 ```
 
-Visit [http://localhost:8080](http://localhost:8080) to play!
+Visit [http://localhost:8080](http://localhost:8080) in your browser.
+
+---
+
+## 🎓 Training Pipeline
+
+You can train Knightmare from scratch using your own labeled games.
+
+### Step 1: Prepare Your Data
+
+Under the `pipeline/` directory:
+
+- `fens/`: Each file contains one game with a list of FENs, one per line. First line must be `# Result 1-0`, `0-1`, or `1/2-1/2`.
+- `moves/`: Each file has the corresponding best move per position (UCI format), one per line. Use `none` for terminal positions.
+
+**Example:**
+```
+fens/game000000000.txt
+moves/game000000000.moves.txt
+```
+
+### Step 2: Preprocess into shards
+```bash
+cd pipeline/
+python data_preparation.py
+```
+
+This creates `shards/` with training and validation `.pt` files.
+
+### Step 3: Train the model
+```bash
+python train.py
+```
+
+- Will resume from `checkpoint_last.pt` if available.
+- Saves best model as `checkpoint_best.pt`.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-├── app.py                # Flask application and game logic
-├── model.pt              # Pre-trained PyTorch model
-├── move_to_idx.json      # Mapping of UCI moves to model indices
+├── app.py
+├── model.pt
+├── move_to_idx.json
+├── requirements.txt
+├── Dockerfile
 ├── templates/
-│   └── index.html        # Web UI
+│   └── index.html
 ├── static/
-│   └── favicon.ico       # Favicon
-├── requirements.txt      # Python dependencies
-└── Dockerfile            # Docker build configuration
+│   └── favicon.ico
+└── pipeline/
+    ├── fens/
+    ├── moves/
+    ├── shards/
+    ├── data_preparation.py
+    └── train.py
 ```
 
 ---
@@ -101,11 +133,14 @@ Visit [http://localhost:8080](http://localhost:8080) to play!
 - Python 3.8+
 - PyTorch
 - Flask
-- NumPy
 - python-chess
+- NumPy
+- tqdm
 
-(Dependencies are installed via `requirements.txt`)
+Installable via `pip install -r requirements.txt`.
 
 ---
 
-Feel free to contribute, fork, or build upon Knightmare!
+## Contributing
+
+Knightmare is an educational chess engine meant to grow. Feel free to fork, modify, and experiment.
