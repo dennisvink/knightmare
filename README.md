@@ -11,6 +11,13 @@ This project features:
 
 ---
 
+## Demo
+
+- https://huggingface.co/spaces/dennisvink/knightmare
+- https://chessbot-uo7slb3u7a-uc.a.run.app/
+
+---
+
 ## How It Works
 
 1. **Board Representation**: FEN strings are encoded into 17-channel tensors (12 piece types, 4 castling planes, 1 en-passant).
