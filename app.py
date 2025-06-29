@@ -110,10 +110,12 @@ with open("move_to_idx.json", "r") as f:
 idx_to_move = {int(i): m for m, i in move_to_idx.items()}
 
 book = {}
-with open("book.json", "r") as f:
-    for line in f:
-        entry = json.loads(line)
-        book[entry["fen"]] = entry["moves"]
+
+for filename in ["book1.json", "book2.json", "book3.json", "book4.json"]:
+    with open(filename, "r") as f:
+        for line in f:
+            entry = json.loads(line)
+            book[entry["fen"]] = entry["moves"]
 
 def get_positional_fen(fen: str) -> str:
     return " ".join(fen.split(" ")[:4])
