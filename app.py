@@ -109,9 +109,37 @@ with open("move_to_idx.json", "r") as f:
     move_to_idx = json.load(f)
 idx_to_move = {int(i): m for m, i in move_to_idx.items()}
 
+book = {}
+with open("book.json", "r") as f:
+    for line in f:
+        entry = json.loads(line)
+        book[entry["fen"]] = entry["moves"]
+
+def get_positional_fen(fen: str) -> str:
+    return " ".join(fen.split(" ")[:4])
+
+def get_book_move(fen: str):
+    pos_fen = get_positional_fen(fen)
+    moves = book.get(pos_fen)
+
+    if not moves:
+        return None
+
+    uci_moves = [m[0] for m in moves]
+    weights = [m[1] for m in moves]
+
+    total = sum(weights)
+    if total == 0:
+        # Should never happen methinks
+        return None
+
+    probabilities = [w / total for w in weights]
+    return random.choices(uci_moves, weights=probabilities, k=1)[0]
+
 model = ChessPolicyValueNet(input_planes=17, policy_size=len(move_to_idx))
 model.load_state_dict(torch.load("model.pt", map_location="cpu")['model_state_dict'])
 model.eval()
+
 
 class MCTSNode:
     def __init__(self, board, parent=None, move=None, prior=0.0):
@@ -172,30 +200,34 @@ def backpropagate(node, value):
         current.value_sum += win_prob
         current = current.parent
 
-def run_mcts(root_board, simulations=1000, top_k=10):
-    root = MCTSNode(root_board)
-    expand_node(root, top_k=top_k)
+def run_mcts_or_play_book_move(root_board, simulations=1000, top_k=10, fen=None):
+    best = get_book_move(fen)
 
-    for _ in range(simulations):
-        node = root
-        while node.children:
-            node = select_child(node)
+    if best is None:
+        root = MCTSNode(root_board)
+        expand_node(root, top_k=top_k)
 
-        if node.board.is_game_over():
-            outcome = node.board.result()
-            if outcome == "1-0":
-                value = torch.tensor([1.0, 0.0, 0.0])
-            elif outcome == "0-1":
-                value = torch.tensor([0.0, 0.0, 1.0])
+        for _ in range(simulations):
+            node = root
+            while node.children:
+                node = select_child(node)
+
+            if node.board.is_game_over():
+                outcome = node.board.result()
+                if outcome == "1-0":
+                    value = torch.tensor([1.0, 0.0, 0.0])
+                elif outcome == "0-1":
+                    value = torch.tensor([0.0, 0.0, 1.0])
+                else:
+                    value = torch.tensor([0.0, 1.0, 0.0])
             else:
-                value = torch.tensor([0.0, 1.0, 0.0])
-        else:
-            value = expand_node(node, top_k=top_k)
+                value = expand_node(node, top_k=top_k)
 
-        backpropagate(node, value)
+            backpropagate(node, value)
 
-    best = max(root.children.values(), key=lambda c: c.visits)
-    return best.move.uci()
+        best = max(root.children.values(), key=lambda c: c.visits)
+        return best.move.uci()
+    return best
 
 @app.route("/")
 def index():
@@ -208,7 +240,7 @@ def start_game():
     move = None
 
     if computer_color == 'white':
-        move = run_mcts(board, simulations=100, top_k=10)
+        move = run_mcts_or_play_book_move(board, simulations=100, top_k=10, fen=board.fen())
         board.push(chess.Move.from_uci(move))
 
     return jsonify({
@@ -226,7 +258,7 @@ def model_move():
     if board.is_game_over():
         return jsonify({"error": "Game is over."})
 
-    best_move = run_mcts(board, simulations=100, top_k=10)
+    best_move = run_mcts_or_play_book_move(board, simulations=100, top_k=10, fen=board.fen())
     board.push(chess.Move.from_uci(best_move))
 
     return jsonify({
